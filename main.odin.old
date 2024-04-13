@@ -1,0 +1,91 @@
+package main
+
+import "core:fmt"
+import "core:os"
+import "core:strings"
+import "core:time"
+
+import rl "vendor:raylib"
+
+Cursor :: struct {
+	pos:     rl.Vector2,
+	pressed: bool,
+}
+
+PointType :: enum {
+	START,
+	END,
+	DEFAULT,
+}
+
+Tracepoint :: struct {
+	pos:  rl.Vector2,
+	type: PointType,
+}
+
+AppState :: struct {
+	cursor: Cursor,
+	lines:  [dynamic]Tracepoint,
+    counter: int,
+}
+
+//global
+appState: AppState
+
+init :: proc() {
+    appState.counter = 0
+}
+
+update :: proc() {
+	pos := rl.GetTouchPosition(0)
+	pressed := rl.IsMouseButtonDown(rl.MouseButton.LEFT)
+
+	if (pressed) {
+        if(appState.cursor.pos != pos || !appState.cursor.pressed) {
+            tracepointType:= !appState.cursor.pressed ? PointType.START :  PointType.DEFAULT
+            append(&appState.lines, Tracepoint{
+                pos, 
+                tracepointType,
+            })
+            appState.counter += 1
+        }
+	} else if(appState.cursor.pressed && appState.counter > 0) {
+        last := pop(&appState.lines)
+        last.type = PointType.END
+        append(&appState.lines, last)
+        fmt.printfln("LINE # %d", appState.counter)
+    }
+
+	appState.cursor.pressed = pressed
+    appState.cursor.pos = pos
+}
+
+render :: proc() {
+    lastPoint: Tracepoint
+    for point in appState.lines {
+        if (point.type != PointType.START) {
+            rl.DrawLineV(lastPoint.pos, point.pos, rl.BLACK)
+        } else {
+            rl.DrawCircleV(point.pos, 4.0, rl.RED)
+        }
+        lastPoint = point
+    }
+    rl.ClearBackground(appState.cursor.pressed? rl.WHITE : rl.RAYWHITE)
+}
+
+
+main :: proc() {
+	rl.InitWindow(1280, 720, "My Game")
+	rl.SetTraceLogLevel(rl.TraceLogLevel.WARNING)
+
+    init()
+
+	for !rl.WindowShouldClose() {
+		update()
+		rl.BeginDrawing()
+	
+		render()
+		rl.EndDrawing()
+	}
+	rl.CloseWindow()
+}
